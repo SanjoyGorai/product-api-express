@@ -1,6 +1,7 @@
 import Product from "../models/productModel.js";
 import s3 from "../config/s3.js";
 import fs from "fs";
+import { Op } from "sequelize";
 
 export const createProduct = async (req, res) => {
   try {
@@ -109,5 +110,44 @@ export const deleteAllProducts = async (req, res) => {
     res.status(200).json({ message: "All products deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getProductsByQuery = async (req, res) => {
+  try {
+    const { title, minPrice, maxPrice } = req.query;
+
+    const query = {
+      where: {},
+    };
+
+    // Filter by title
+    if (title) {
+      query.where.title = { [Op.like]: `%${title}%` }; // Case-insensitive search
+    }
+
+    // Filter by price range
+    if (minPrice) {
+      query.where.price = { [Op.gte]: minPrice };
+    }
+    if (maxPrice) {
+      if (query.where.price) {
+        query.where.price[Op.lte] = maxPrice;
+      } else {
+        query.where.price = { [Op.lte]: maxPrice };
+      }
+    }
+
+    const products = await Product.findAll(query);
+
+    if (products.length === 0) {
+      return res.status(404).json({ message: "No products found" });
+    }
+
+    res.json(products);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Something went wrong", details: error.message });
   }
 };
